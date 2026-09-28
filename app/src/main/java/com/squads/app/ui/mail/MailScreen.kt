@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -60,6 +62,8 @@ import com.squads.app.data.toRelativeTime
 import com.squads.app.ui.components.Avatar
 import com.squads.app.ui.components.ImportanceBadge
 import com.squads.app.ui.components.LoadingScreen
+import com.squads.app.ui.components.EmptyScreen
+import com.squads.app.ui.components.LocalIsExpandedLayout
 import com.squads.app.ui.components.ScreenHeader
 import com.squads.app.ui.components.UnreadBadge
 import com.squads.app.ui.theme.BottomNavHeight
@@ -75,6 +79,10 @@ fun MailScreen(
     val folders by viewModel.folders.collectAsState()
     val currentFolderId by viewModel.currentFolderId.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val selectedMail by viewModel.selectedMail.collectAsState()
+    val isDetailLoading by viewModel.isDetailLoading.collectAsState()
+    val authToken by viewModel.authToken.collectAsState()
+    val expanded = LocalIsExpandedLayout.current
 
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         viewModel.onAppResumed()
@@ -82,16 +90,50 @@ fun MailScreen(
 
     if (isLoading && messages.isEmpty() && folders.isEmpty()) {
         LoadingScreen()
+    } else if (expanded) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            MailListScreen(
+                messages = messages,
+                folders = folders,
+                currentFolderId = currentFolderId,
+                selectedMailId = selectedMail?.id,
+                onFolderClick = { viewModel.switchFolder(it) },
+                onMailClick = { viewModel.selectMail(it) },
+                modifier = Modifier.weight(0.42f),
+                expanded = true,
+            )
+            Surface(
+                modifier = Modifier.weight(0.58f).fillMaxSize(),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                if (selectedMail != null) {
+                    MailDetailScreen(
+                        mail = selectedMail!!,
+                        onBack = { viewModel.clearSelection() },
+                        isBodyLoading = isDetailLoading,
+                        httpClient = viewModel.okHttpClient,
+                        authToken = authToken,
+                    )
+                } else {
+                    EmptyScreen(
+                        title = "Select an email",
+                        subtitle = "Your message will appear here",
+                    )
+                }
+            }
+        }
     } else {
         MailListScreen(
             messages = messages,
             folders = folders,
             currentFolderId = currentFolderId,
+            selectedMailId = selectedMail?.id,
             onFolderClick = { viewModel.switchFolder(it) },
             onMailClick = { mail ->
                 viewModel.selectMail(mail)
                 onMailClick()
             },
+            expanded = false,
         )
     }
 }
@@ -101,14 +143,17 @@ private fun MailListScreen(
     messages: List<MailMessage>,
     folders: List<MailFolder>,
     currentFolderId: String?,
+    selectedMailId: String?,
     onFolderClick: (String) -> Unit,
     onMailClick: (MailMessage) -> Unit,
+    modifier: Modifier = Modifier,
+    expanded: Boolean,
 ) {
     val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(bottom = BottomNavHeight + systemNavInset),
+        modifier = modifier.fillMaxSize().statusBarsPadding(),
+        contentPadding = PaddingValues(bottom = (if (expanded) 0.dp else BottomNavHeight) + systemNavInset),
     ) {
         item { ScreenHeader("Mail") }
         if (folders.size > 1) {
@@ -129,7 +174,7 @@ private fun MailListScreen(
             }
         }
         items(messages, key = { it.id }, contentType = { "mail" }) { mail ->
-            MailRow(mail = mail, onClick = { onMailClick(mail) })
+            MailRow(mail = mail, selected = selectedMailId == mail.id, onClick = { onMailClick(mail) })
             HorizontalDivider(
                 modifier = Modifier.padding(start = 76.dp),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -141,6 +186,7 @@ private fun MailListScreen(
 @Composable
 private fun MailRow(
     mail: MailMessage,
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -148,6 +194,9 @@ private fun MailRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f) else Color.Transparent,
+                )
                 .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {

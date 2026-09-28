@@ -57,6 +57,7 @@ import com.squads.app.data.graphGroupPhotoUrl
 import com.squads.app.data.graphProfilePhotoUrl
 import com.squads.app.data.toRelativeTime
 import com.squads.app.ui.components.Avatar
+import com.squads.app.ui.components.LocalIsExpandedLayout
 import com.squads.app.ui.components.LoadingScreen
 import com.squads.app.ui.components.ReactionChip
 import com.squads.app.ui.components.ScreenHeader
@@ -71,6 +72,7 @@ fun TeamsScreen(viewModel: TeamsViewModel = hiltViewModel()) {
     val channelMessages by viewModel.channelMessages.collectAsState()
     val selectedChannelName by viewModel.selectedChannelName.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val expanded = LocalIsExpandedLayout.current
 
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         viewModel.onAppResumed()
@@ -118,7 +120,11 @@ fun TeamsScreen(viewModel: TeamsViewModel = hiltViewModel()) {
             }
             else -> {
                 // Teams list
-                TeamsListView(teams = teams, onTeamClick = { viewModel.selectTeam(it) })
+                TeamsListView(
+                    teams = teams,
+                    onTeamClick = { viewModel.selectTeam(it) },
+                    expanded = expanded,
+                )
             }
         }
     }
@@ -128,12 +134,13 @@ fun TeamsScreen(viewModel: TeamsViewModel = hiltViewModel()) {
 private fun TeamsListView(
     teams: List<Team>,
     onTeamClick: (Team) -> Unit,
+    expanded: Boolean,
 ) {
     val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(bottom = BottomNavHeight + systemNavInset),
+        contentPadding = PaddingValues(bottom = (if (expanded) 0.dp else BottomNavHeight) + systemNavInset),
     ) {
         item { ScreenHeader("Teams") }
         items(teams, key = { it.id }, contentType = { "team" }) { team ->
@@ -203,13 +210,18 @@ private fun ChannelsListView(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChannelMessagesView(messages: List<ChannelMessage>) {
+    val expanded = LocalIsExpandedLayout.current
     val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         reverseLayout = true,
         verticalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = BottomNavHeight + systemNavInset + 16.dp),
+        contentPadding =
+            PaddingValues(
+                top = 8.dp,
+                bottom = (if (expanded) 0.dp else BottomNavHeight) + systemNavInset + 16.dp,
+            ),
     ) {
         items(messages, key = { it.id }, contentType = { "channelMessage" }) { msg ->
             var repliesExpanded by remember { mutableStateOf(false) }

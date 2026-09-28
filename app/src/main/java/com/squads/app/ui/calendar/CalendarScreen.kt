@@ -2,6 +2,8 @@ package com.squads.app.ui.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -53,6 +56,7 @@ import com.squads.app.data.CalendarEvent
 import com.squads.app.data.toTimeString
 import com.squads.app.ui.components.EmptyScreen
 import com.squads.app.ui.components.LoadingScreen
+import com.squads.app.ui.components.LocalIsExpandedLayout
 import com.squads.app.ui.components.ScreenHeader
 import com.squads.app.ui.theme.BottomNavHeight
 import com.squads.app.viewmodel.CalendarViewModel
@@ -68,6 +72,7 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
     val weekOffset by viewModel.weekOffset.collectAsState()
     val selectedEvent by viewModel.selectedEvent.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val expanded = LocalIsExpandedLayout.current
 
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         viewModel.onAppResumed()
@@ -115,23 +120,84 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
             }
         }
 
-        val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        val bottomPadding = BottomNavHeight + systemNavInset
+        if (expanded) {
+            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                CalendarEventList(
+                    events = events,
+                    isLoading = isLoading,
+                    showWeek = showWeek,
+                    selectedEventId = selectedEvent?.id,
+                    onEventClick = { viewModel.selectEvent(it) },
+                    modifier = Modifier.weight(0.46f),
+                    expanded = true,
+                )
+                Surface(
+                    modifier = Modifier.weight(0.54f).fillMaxSize(),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                ) {
+                    if (selectedEvent != null) {
+                        EventDetailSheet(event = selectedEvent!!)
+                    } else {
+                        EmptyScreen(
+                            title = "Select an event",
+                            subtitle = "Event details will appear here",
+                            icon = Icons.Default.CalendarMonth,
+                        )
+                    }
+                }
+            }
+        } else {
+            CalendarEventList(
+                events = events,
+                isLoading = isLoading,
+                showWeek = showWeek,
+                selectedEventId = selectedEvent?.id,
+                onEventClick = { viewModel.selectEvent(it) },
+                modifier = Modifier.weight(1f),
+                expanded = false,
+            )
+        }
+    }
 
-        if (isLoading && events.isEmpty()) {
-            LoadingScreen(Modifier.weight(1f).padding(bottom = bottomPadding))
-        } else if (events.isEmpty()) {
+    if (!expanded && selectedEvent != null) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.dismissEvent() },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            EventDetailSheet(event = selectedEvent!!)
+        }
+    }
+}
+
+@Composable
+private fun CalendarEventList(
+    events: List<CalendarEvent>,
+    isLoading: Boolean,
+    showWeek: Boolean,
+    selectedEventId: String?,
+    onEventClick: (CalendarEvent) -> Unit,
+    modifier: Modifier,
+    expanded: Boolean,
+) {
+    val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottomInset = (if (expanded) 0.dp else BottomNavHeight) + systemNavInset
+    when {
+        isLoading && events.isEmpty() -> {
+            LoadingScreen(modifier.fillMaxSize().padding(bottom = bottomInset))
+        }
+        events.isEmpty() -> {
             EmptyScreen(
                 title = if (showWeek) "No events this week" else "No events today",
                 subtitle = "Your schedule is clear!",
                 icon = Icons.Default.CalendarMonth,
-                modifier = Modifier.weight(1f).padding(bottom = bottomPadding),
+                modifier = modifier.fillMaxSize().padding(bottom = bottomInset),
             )
-        } else {
+        }
+        else -> {
             val grouped = remember(events) { events.groupBy { it.startTime.toLocalDate() } }
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = BottomNavHeight + systemNavInset),
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = (if (expanded) 0.dp else BottomNavHeight) + systemNavInset),
             ) {
                 grouped.forEach { (date, dayEvents) ->
                     item(contentType = "dateHeader") {
@@ -144,20 +210,14 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
                         )
                     }
                     items(dayEvents, key = { it.id }, contentType = { "event" }) { event ->
-                        EventCard(event = event, onClick = { viewModel.selectEvent(event) })
+                        EventCard(
+                            event = event,
+                            selected = selectedEventId == event.id,
+                            onClick = { onEventClick(event) },
+                        )
                     }
                 }
             }
-        }
-    }
-
-    // Event detail bottom sheet
-    if (selectedEvent != null) {
-        ModalBottomSheet(
-            onDismissRequest = { viewModel.dismissEvent() },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        ) {
-            EventDetailSheet(event = selectedEvent!!)
         }
     }
 }
@@ -165,6 +225,7 @@ fun CalendarScreen(viewModel: CalendarViewModel = hiltViewModel()) {
 @Composable
 private fun EventCard(
     event: CalendarEvent,
+    selected: Boolean,
     onClick: () -> Unit,
 ) {
     val responseColor =
@@ -180,6 +241,9 @@ private fun EventCard(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f) else Color.Transparent,
+                )
                 .padding(horizontal = 20.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -261,7 +325,13 @@ private fun EventCard(
 
 @Composable
 private fun EventDetailSheet(event: CalendarEvent) {
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+    ) {
         Text(
             event.subject,
             style = MaterialTheme.typography.headlineSmall,

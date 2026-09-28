@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.squads.app.data.SearchResult
 import com.squads.app.data.SearchResultType
+import com.squads.app.ui.components.LocalIsExpandedLayout
 import com.squads.app.ui.components.ScreenHeader
 import com.squads.app.ui.theme.BottomNavHeight
 import com.squads.app.viewmodel.SearchViewModel
@@ -46,6 +47,7 @@ import com.squads.app.viewmodel.SearchViewModel
 fun SearchScreen(viewModel: SearchViewModel = hiltViewModel()) {
     val query by viewModel.query.collectAsState()
     val results by viewModel.results.collectAsState()
+    val expanded = LocalIsExpandedLayout.current
 
     Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
         ScreenHeader("Search")
@@ -101,7 +103,7 @@ fun SearchScreen(viewModel: SearchViewModel = hiltViewModel()) {
         } else {
             val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             LazyColumn(
-                contentPadding = PaddingValues(bottom = BottomNavHeight + systemNavInset),
+                contentPadding = PaddingValues(bottom = (if (expanded) 0.dp else BottomNavHeight) + systemNavInset),
             ) {
                 items(results, key = { "${it.type}-${it.id}" }, contentType = { it.type }) { result ->
                     SearchResultRow(result)

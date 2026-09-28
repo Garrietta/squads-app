@@ -81,6 +81,7 @@ private const val MESSAGE_GROUP_GAP_MINUTES = 5L
 fun ChatDetailScreen(
     viewModel: ChatsViewModel,
     onBack: () -> Unit,
+    showBackButton: Boolean = true,
 ) {
     val chat by viewModel.selectedChat.collectAsState()
     val messages by viewModel.messages.collectAsState()
@@ -149,8 +150,10 @@ fun ChatDetailScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    if (showBackButton) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 },
             )

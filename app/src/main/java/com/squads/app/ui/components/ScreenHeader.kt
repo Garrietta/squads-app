@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 val LocalIsOnline = compositionLocalOf { true }
+val LocalIsExpandedLayout = compositionLocalOf { false }
 
 @Composable
 fun ScreenHeader(

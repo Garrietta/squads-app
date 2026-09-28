@@ -1,5 +1,6 @@
 package com.squads.app.ui.chats
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,6 +41,7 @@ import com.squads.app.data.ChatConversation
 import com.squads.app.data.PresenceAvailability
 import com.squads.app.data.toRelativeTime
 import com.squads.app.ui.components.ChatAvatar
+import com.squads.app.ui.components.LocalIsExpandedLayout
 import com.squads.app.ui.components.LoadingScreen
 import com.squads.app.ui.components.ScreenHeader
 import com.squads.app.ui.components.UnreadBadge
@@ -47,6 +50,7 @@ import com.squads.app.viewmodel.ChatsViewModel
 
 @Composable
 fun ChatsScreen(
+    modifier: Modifier = Modifier,
     viewModel: ChatsViewModel = hiltViewModel(),
     onChatClick: (ChatConversation) -> Unit = {},
     onProfileClick: () -> Unit = {},
@@ -54,6 +58,8 @@ fun ChatsScreen(
     val chats by viewModel.chats.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val presenceMap by viewModel.presenceMap.collectAsState()
+    val selectedChat by viewModel.selectedChat.collectAsState()
+    val expanded = LocalIsExpandedLayout.current
 
     LifecycleEventEffect(Lifecycle.Event.ON_START) {
         viewModel.onAppResumed()
@@ -67,8 +73,8 @@ fun ChatsScreen(
     val systemNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(bottom = BottomNavHeight + systemNavInset),
+        modifier = modifier.fillMaxSize().statusBarsPadding(),
+        contentPadding = PaddingValues(bottom = (if (expanded) 0.dp else BottomNavHeight) + systemNavInset),
     ) {
         item {
             ScreenHeader("Chats") {
@@ -85,6 +91,7 @@ fun ChatsScreen(
             ChatRow(
                 chat = chat,
                 presence = if (chat.isOneOnOne) chat.memberId?.let { presenceMap[it] } else null,
+                selected = selectedChat?.id == chat.id,
                 onClick = {
                     viewModel.selectChat(chat)
                     onChatClick(chat)
@@ -102,6 +109,7 @@ fun ChatsScreen(
 private fun ChatRow(
     chat: ChatConversation,
     presence: PresenceAvailability? = null,
+    selected: Boolean = false,
     onClick: () -> Unit,
 ) {
     Row(
@@ -109,6 +117,9 @@ private fun ChatRow(
             Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onClick)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f) else Color.Transparent,
+                )
                 .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
