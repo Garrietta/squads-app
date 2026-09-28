@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.weight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -194,8 +193,10 @@ private fun MainApp(authViewModel: AuthViewModel) {
                             val selectedChat by chatsViewModel.selectedChat.collectAsState()
                             var wasExpanded by remember { mutableStateOf(expanded) }
                             LaunchedEffect(expanded, selectedChat?.id) {
-                                if (wasExpanded && !expanded && selectedChat != null) {
-                                    navigator.navigate(ChatDetail(chatId = selectedChat!!.id))
+                                if (wasExpanded && !expanded) {
+                                    selectedChat?.let { chat ->
+                                        navigator.navigate(ChatDetail(chatId = chat.id))
+                                    }
                                 }
                                 wasExpanded = expanded
                             }
@@ -276,8 +277,10 @@ private fun MainApp(authViewModel: AuthViewModel) {
                             val selectedMail by mailViewModel.selectedMail.collectAsState()
                             var wasExpanded by remember { mutableStateOf(expanded) }
                             LaunchedEffect(expanded, selectedMail?.id) {
-                                if (wasExpanded && !expanded && selectedMail != null) {
-                                    navigator.navigate(MailDetail(mailId = selectedMail!!.id))
+                                if (wasExpanded && !expanded) {
+                                    selectedMail?.let { mail ->
+                                        navigator.navigate(MailDetail(mailId = mail.id))
+                                    }
                                 }
                                 wasExpanded = expanded
                             }
